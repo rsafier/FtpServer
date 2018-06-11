@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Google.Apis.Drive.v3;
 using Google.Apis.Drive.v3.Data;
 
+using JetBrains.Annotations;
+
 namespace FubarDev.FtpServer.FileSystem.GoogleDrive
 {
     /// <summary>
@@ -18,10 +20,9 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
         /// <summary>
         /// Gets the Google Drive service and root entry for the given user.
         /// </summary>
-        /// <param name="userId">The user id.</param>
-        /// <param name="isAnonymous">Defines whether the user with the given ID is an anonymous user.</param>
+        /// <param name="accountInformation">The account information to get the <see cref="IUnixFileSystem"/> for.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The Google Drive service and the root entry.</returns>
-        Task<(DriveService service, File rootEntry)> GetUserRootAsync(string userId, bool isAnonymous, CancellationToken cancellationToken);
+        Task<(DriveService service, File rootEntry)> GetUserRootAsync([NotNull] IAccountInformation accountInformation, CancellationToken cancellationToken);
     }
 }

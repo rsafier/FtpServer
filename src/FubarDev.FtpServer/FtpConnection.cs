@@ -71,7 +71,7 @@ namespace FubarDev.FtpServer
             Log = logger;
             SocketStream = OriginalStream = socket.GetStream();
             Encoding = options.Value.DefaultEncoding ?? Encoding.ASCII;
-            Data = new FtpConnectionData(new BackgroundCommandHandler(this));
+            Data = new FtpConnectionData(new BackgroundCommandHandler(this), this);
 
             // Lazy is required, because we need access to the FTP connection in the command handler constructor
             _commandHandlersDict = new Lazy<IReadOnlyDictionary<string, IFtpCommandHandler>>(
@@ -349,13 +349,11 @@ namespace FubarDev.FtpServer
         private async Task ProcessMessage(FtpCommand command)
         {
             FtpResponse response;
-            Log?.Trace(command);
+            Log?.Command(command);
             var result = FindCommandHandler(command);
             if (result != null)
             {
-                var handler = result.Item2;
-                var handlerCommand = result.Item1;
-                var isLoginRequired = result.Item3;
+                var (handlerCommand, handler, isLoginRequired) = result;
                 if (isLoginRequired && !Data.IsLoggedIn)
                 {
                     response = new FtpResponse(530, "Not logged in.");

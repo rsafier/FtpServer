@@ -41,20 +41,19 @@ namespace FubarDev.FtpServer.FileSystem.DotNet
         }
 
         /// <inheritdoc/>
-        public Task<IUnixFileSystem> Create(string userId, bool isAnonymous)
+        public Task<IUnixFileSystem> Create(IAccountInformation accountInformation)
         {
             var path = _rootPath;
             if (_useUserIdAsSubFolder)
             {
-                if (isAnonymous)
-                {
-                    userId = "anonymous";
-                }
-
+                var userId = accountInformation.IsAnonymous
+                    ? "anonymous"
+                    : accountInformation.User?.Name ?? "anonymous";
                 path = Path.Combine(path, userId);
             }
 
-            return Task.FromResult<IUnixFileSystem>(new DotNetFileSystem(path, _allowNonEmptyDirectoryDelete, _streamBufferSize));
+            return Task.FromResult<IUnixFileSystem>(
+                new DotNetFileSystem(path, _allowNonEmptyDirectoryDelete, _streamBufferSize));
         }
     }
 }

@@ -19,6 +19,7 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -76,6 +77,11 @@ namespace TestFtpServer
                 },
             };
 
+            if (args.Length == 0)
+            {
+                return optionSet.Run(new[] { "filesystem" });
+            }
+
             return optionSet.Run(args);
         }
 
@@ -84,10 +90,14 @@ namespace TestFtpServer
             options.Validate();
             var rootDir =
                 args.Length != 0 ? args[0] : Path.Combine(Path.GetTempPath(), "TestFtpServer");
-            var services = CreateServices(options)
-                .Configure<DotNetFileSystemOptions>(opt => opt.RootPath = rootDir)
+            var builder = CreateHostBuilder(options)
+                .UseContentRoot(rootDir)
+                .ConfigureServices(
+                    services => services
+                        .AddOptions<DotNetFileSystemOptions>()
+                        .Configure<IHostingEnvironment>((opt, env) => opt.RootPath = env.ContentRootPath))
                 .AddFtpServer(sb => Configure(sb).UseDotNetFileSystem());
-            Run(services, options);
+            Run(builder);
         }
 
         private static async Task RunWithGoogleDriveUser(string[] args, TestFtpServerOptions options)
@@ -116,9 +126,9 @@ namespace TestFtpServer
                 }
             }
 
-            var services = CreateServices(options)
+            var builder = CreateHostBuilder(options)
                 .AddFtpServer(sb => Configure(sb).UseGoogleDrive(credential));
-            Run(services, options);
+            Run(builder);
         }
 
         private static void RunWithGoogleDriveService(string[] args, TestFtpServerOptions options)
@@ -134,74 +144,80 @@ namespace TestFtpServer
                 .FromFile(serviceCredentialFile)
                 .CreateScoped(DriveService.Scope.Drive, DriveService.Scope.DriveFile);
 
-            var services = CreateServices(options)
+            var builder = CreateHostBuilder(options)
                 .AddFtpServer(sb => Configure(sb).UseGoogleDrive(credential));
-            Run(services, options);
+            Run(builder);
         }
 
-        private static void Run(IServiceCollection services, TestFtpServerOptions options)
+        private static void Run(IHostBuilder hostBuilder)
         {
-            using (var serviceProvider = services.BuildServiceProvider())
+            try
             {
-                var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-                loggerFactory.AddNLog(new NLogProviderOptions { CaptureMessageTemplates = true, CaptureMessageProperties = true });
-                NLog.LogManager.LoadConfiguration("NLog.config");
-
-                var ftpServer = serviceProvider.GetRequiredService<IFtpServer>();
-
-                if (options.ImplicitFtps)
-                {
-                    var authTlsOptions = serviceProvider.GetRequiredService<IOptions<AuthTlsOptions>>();
-                    // Use an implicit SSL connection (without the AUTHTLS command)
-                    ftpServer.ConfigureConnection += (s, e) =>
-                    {
-                        var sslStream = new SslStream(e.Connection.OriginalStream);
-                        sslStream.AuthenticateAsServer(authTlsOptions.Value.ServerCertificate);
-                        e.Connection.SocketStream = sslStream;
-                    };
-                }
-
-                try
-                {
-                    // Start the FTP server
-                    ftpServer.Start();
-                    Console.WriteLine("Press ENTER/RETURN to close the test application.");
-                    Console.ReadLine();
-
-                    // Stop the FTP server
-                    ftpServer.Stop();
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(ex);
-                }
+                hostBuilder.RunConsoleAsync().Wait();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
             }
         }
 
-        private static IServiceCollection CreateServices(TestFtpServerOptions options)
+        private static IHostBuilder CreateHostBuilder(TestFtpServerOptions options)
         {
-            var services = new ServiceCollection();
-            services.AddLogging(cfg => cfg.SetMinimumLevel(LogLevel.Trace));
-            services.AddOptions();
+            NLog.LogManager.LoadConfiguration("NLog.config");
 
-            services.Configure<AuthTlsOptions>(opt =>
+            return new HostBuilder()
+                .ConfigureLogging(
+                    lb => lb
+                        .SetMinimumLevel(LogLevel.Trace)
+                        .AddNLog(
+                            new NLogProviderOptions
+                            {
+                                CaptureMessageTemplates = true,
+                                CaptureMessageProperties = true
+                            }))
+                .ConfigureServices(services => Configure(services, options));
+        }
+
+        private static void Configure(IServiceCollection services, TestFtpServerOptions options)
+        {
+            services
+                .AddOptions()
+                .Configure<AuthTlsOptions>(
+                    opt =>
+                    {
+                        if (options.ServerCertificateFile != null)
+                        {
+                            opt.ServerCertificate = new X509Certificate2(
+                                options.ServerCertificateFile,
+                                options.ServerCertificatePassword);
+                        }
+                    })
+                .Configure<FtpConnectionOptions>(opt => opt.DefaultEncoding = Encoding.ASCII)
+                .Configure<FtpServerOptions>(
+                    opt =>
+                    {
+                        opt.ServerAddress = options.ServerAddress ?? "localhost";
+                        opt.Port = options.GetPort();
+                    });
+
+            if (options.ImplicitFtps)
             {
-                if (options.ServerCertificateFile != null)
-                {
-                    opt.ServerCertificate = new X509Certificate2(
-                        options.ServerCertificateFile,
-                        options.ServerCertificatePassword);
-                }
-            });
+                services.Decorate<FtpServer>(
+                    (ftpServer, serviceProvider) =>
+                    {
+                        var authTlsOptions = serviceProvider.GetRequiredService<IOptions<AuthTlsOptions>>();
 
-            services.Configure<FtpConnectionOptions>(opt => opt.DefaultEncoding = Encoding.ASCII);
-            services.Configure<FtpServerOptions>(opt =>
-            {
-                opt.ServerAddress = options.ServerAddress ?? "localhost";
-                opt.Port = options.GetPort();
-            });
+                        // Use an implicit SSL connection (without the AUTHTLS command)
+                        ftpServer.ConfigureConnection += (s, e) =>
+                        {
+                            var sslStream = new SslStream(e.Connection.OriginalStream);
+                            sslStream.AuthenticateAsServer(authTlsOptions.Value.ServerCertificate);
+                            e.Connection.SocketStream = sslStream;
+                        };
 
-            return services;
+                        return ftpServer;
+                    });
+            }
         }
 
         private static IFtpServerBuilder Configure(IFtpServerBuilder builder)

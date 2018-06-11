@@ -21,22 +21,12 @@ namespace FubarDev.FtpServer
         /// </summary>
         /// <param name="log">The <see cref="ILogger"/> to use.</param>
         /// <param name="command">The <see cref="FtpCommand"/> to log.</param>
-        public static void Trace([NotNull] this ILogger log, [NotNull] FtpCommand command)
+        public static void Command([NotNull] this ILogger log, [NotNull] FtpCommand command)
         {
             var arguments = string.Equals(command.Name, "PASS", System.StringComparison.OrdinalIgnoreCase)
                 ? @"**************** (password omitted)"
                 : command.Argument;
-            log.LogTrace("{name} {arguments}", command.Name, arguments);
-        }
-
-        /// <summary>
-        /// Logs a trace message with the data of the <see cref="FtpResponse"/>.
-        /// </summary>
-        /// <param name="log">The <see cref="ILogger"/> to use.</param>
-        /// <param name="response">The <see cref="FtpResponse"/> to log.</param>
-        public static void Trace([NotNull] this ILogger log, [NotNull] FtpResponse response)
-        {
-            log.LogTrace("{code} {message}", response.Code, response.Message);
+            log.LogDebug("{name} {arguments}", command.Name, arguments);
         }
 
         /// <summary>
@@ -92,7 +82,7 @@ namespace FubarDev.FtpServer
         {
             if (response.Code >= 200 && response.Code < 300)
             {
-                log.Trace(response);
+                log.Debug(response);
             }
             else if (response.Code >= 300 && response.Code < 400)
             {
@@ -107,34 +97,5 @@ namespace FubarDev.FtpServer
                 log.Warn(response);
             }
         }
-
-#if NETSTANDARD1_3
-        internal static void LogError(
-            [NotNull] this ILogger log,
-            System.Exception exception,
-            string message,
-            params object[] args)
-        {
-            log.LogError(0, exception, message, args);
-        }
-
-        internal static void LogWarning(
-            [NotNull] this ILogger log,
-            System.Exception exception,
-            string message,
-            params object[] args)
-        {
-            log.LogWarning(0, exception, message, args);
-        }
-
-        internal static void LogCritical(
-            [NotNull] this ILogger log,
-            System.Exception exception,
-            string message,
-            params object[] args)
-        {
-            log.LogCritical(0, exception, message, args);
-        }
-#endif
     }
 }

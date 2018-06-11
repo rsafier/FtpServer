@@ -9,9 +9,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
-#if !NETSTANDARD1_3
 using Microsoft.Extensions.Logging;
-#endif
 
 using Microsoft.Extensions.Options;
 

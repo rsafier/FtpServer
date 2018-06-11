@@ -7,18 +7,15 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-
-using FubarDev.FtpServer.BackgroundTransfer;
 
 using JetBrains.Annotations;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -27,14 +24,22 @@ namespace FubarDev.FtpServer
     /// <summary>
     /// The portable FTP server.
     /// </summary>
-    public sealed class FtpServer : IFtpServer, IDisposable
+    public sealed class FtpServer : IFtpServer, IDisposable, IHostedService
     {
+        /// <summary>
+        /// Mutex for Ready field.
+        /// </summary>
         private readonly object _startedLock = new object();
 
         /// <summary>
         /// Mutext for Stopped field.
         /// </summary>
         private readonly object _stopLocker = new object();
+
+        /// <summary>
+        /// Semaphore that gets released when the listener stopped.
+        /// </summary>
+        private readonly SemaphoreSlim _stoppedSemaphore = new SemaphoreSlim(0, 1);
 
         [NotNull]
         private readonly FtpServerStatistics _statistics = new FtpServerStatistics();
@@ -52,9 +57,7 @@ namespace FubarDev.FtpServer
         /// <summary>
         /// Don't use this directly, use the Stopped property instead. It is protected by a mutex.
         /// </summary>
-        private bool _stopped;
-
-        private ConfiguredTaskAwaitable _listenerTask;
+        private volatile bool _stopped;
 
         private volatile bool _isReady;
 
@@ -64,19 +67,15 @@ namespace FubarDev.FtpServer
         /// <param name="serverOptions">The server options.</param>
         /// <param name="serviceProvider">The service provider used to query services.</param>
         /// <param name="logger">The FTP server logger.</param>
-        /// <param name="loggerFactory">Factory for loggers.</param>
         public FtpServer(
             [NotNull] IOptions<FtpServerOptions> serverOptions,
             [NotNull] IServiceProvider serviceProvider,
-            [CanBeNull] ILogger<FtpServer> logger = null,
-            [CanBeNull] ILoggerFactory loggerFactory = null)
+            [CanBeNull] ILogger<FtpServer> logger = null)
         {
             _serviceProvider = serviceProvider;
             _log = logger;
             ServerAddress = serverOptions.Value.ServerAddress;
             Port = serverOptions.Value.Port;
-            BackgroundTransferWorker = new BackgroundTransferWorker(loggerFactory?.CreateLogger<BackgroundTransferWorker>());
-            BackgroundTransferWorker.Start(_cancellationTokenSource);
         }
 
         /// <inheritdoc />
@@ -111,8 +110,6 @@ namespace FubarDev.FtpServer
             }
         }
 
-        private BackgroundTransferWorker BackgroundTransferWorker { get; }
-
         /// <summary>
         /// Gets or sets a value indicating whether the server is stopped.
         /// </summary>
@@ -137,35 +134,36 @@ namespace FubarDev.FtpServer
             }
         }
 
-        /// <inheritdoc />
-        public void Start()
+        /// <summary>
+        /// Triggered when the application host is ready to start the service.
+        /// </summary>
+        /// <param name="cancellationToken">Indicates that the start process has been aborted.</param>
+        /// <returns>The task.</returns>
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             if (Stopped)
             {
                 throw new InvalidOperationException("Cannot start a previously stopped FTP server");
             }
 
-            _listenerTask = ExecuteServerListener().ConfigureAwait(false);
+            using (var semaphore = new SemaphoreSlim(0, 1))
+            {
+                ExecuteServerListener(semaphore);
+                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                semaphore.Release();
+            }
         }
 
-        /// <inheritdoc />
-        public void Stop()
+        /// <summary>
+        /// Triggered when the application host is performing a graceful shutdown.
+        /// </summary>
+        /// <param name="cancellationToken">Indicates that the shutdown process should no longer be graceful.</param>
+        /// <returns>The task.</returns>
+        public Task StopAsync(CancellationToken cancellationToken)
         {
             _cancellationTokenSource.Cancel(true);
             Stopped = true;
-        }
-
-        /// <inheritdoc />
-        public IReadOnlyCollection<BackgroundTransferInfo> GetBackgroundTaskStates()
-        {
-            return BackgroundTransferWorker.GetStates();
-        }
-
-        /// <inheritdoc />
-        public void EnqueueBackgroundTransfer(IBackgroundTransfer backgroundTransfer, IFtpConnection connection)
-        {
-            var entry = new BackgroundTransferEntry(backgroundTransfer, connection?.Log);
-            BackgroundTransferWorker.Enqueue(entry);
+            return _stoppedSemaphore.WaitAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -173,24 +171,16 @@ namespace FubarDev.FtpServer
         {
             if (!Stopped)
             {
-                Stop();
+                StopAsync(CancellationToken.None).Wait();
             }
 
-            try
-            {
-                _listenerTask.GetAwaiter().GetResult();
-            }
-            catch (TaskCanceledException)
-            {
-                // Ignorieren - alles ist OK
-            }
-
-            BackgroundTransferWorker.Dispose();
             _cancellationTokenSource.Dispose();
             foreach (var connectionInfo in _connections.Values)
             {
                 connectionInfo.Scope.Dispose();
             }
+
+            _stoppedSemaphore.Dispose();
         }
 
         private void OnConfigureConnection(IFtpConnection connection)
@@ -198,20 +188,21 @@ namespace FubarDev.FtpServer
             ConfigureConnection?.Invoke(this, new ConnectionEventArgs(connection));
         }
 
-        private Task ExecuteServerListener()
+        private void ExecuteServerListener(SemaphoreSlim semaphore)
         {
-            return Task.Run(async () =>
+            Task.Run(async () =>
             {
-                var listener = new MultiBindingTcpListener(ServerAddress, Port);
+                var listener = new MultiBindingTcpListener(_log, ServerAddress, Port);
                 try
                 {
                     await listener.StartAsync().ConfigureAwait(false);
 
                     Ready = true;
+                    semaphore.Release();
 
                     try
                     {
-                        while (!Stopped)
+                        while (!Stopped && !_cancellationTokenSource.IsCancellationRequested)
                         {
                             if (listener.TryGetPending(out var tcpListener))
                             {
@@ -238,6 +229,10 @@ namespace FubarDev.FtpServer
                 catch (Exception ex)
                 {
                     _log?.LogCritical(ex, "{0}", ex.Message);
+                }
+                finally
+                {
+                    _stoppedSemaphore.Release();
                 }
             });
         }

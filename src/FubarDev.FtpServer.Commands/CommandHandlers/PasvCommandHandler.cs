@@ -14,9 +14,7 @@ using System.Threading.Tasks;
 
 using JetBrains.Annotations;
 
-#if !NETSTANDARD1_3
 using Microsoft.Extensions.Logging;
-#endif
 
 namespace FubarDev.FtpServer.CommandHandlers
 {

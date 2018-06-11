@@ -36,11 +36,11 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
         }
 
         /// <inheritdoc />
-        public async Task<IUnixFileSystem> Create(string userId, bool isAnonymous)
+        public async Task<IUnixFileSystem> Create(IAccountInformation accountInformation)
         {
             var (driveService, rootItem) = await _serviceProvider.GetUserRootAsync(
-                userId, isAnonymous, CancellationToken.None);
-            return new GoogleDriveFileSystem(driveService, rootItem, _temporaryDataFactory);
+                accountInformation, CancellationToken.None);
+            return new GoogleDriveFileSystem(driveService, rootItem, _temporaryDataFactory, accountInformation.AuthenticatedFor);
         }
     }
 }

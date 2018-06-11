@@ -35,10 +35,17 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
         /// <param name="file">The file to upload to.</param>
         /// <param name="tempData">The temporary data used to read from.</param>
         /// <param name="fileSystem">The file system that initiated this background upload.</param>
-        public BackgroundUpload([NotNull] string fullPath, [NotNull] File file, [NotNull] ITemporaryData tempData, [NotNull] GoogleDriveFileSystem fileSystem)
+        /// <param name="connection">The FTP connection this background upload belongs to</param>
+        public BackgroundUpload(
+            [NotNull] string fullPath,
+            [NotNull] File file,
+            [NotNull] ITemporaryData tempData,
+            [NotNull] GoogleDriveFileSystem fileSystem,
+            [NotNull] IFtpConnection connection)
         {
             TransferId = fullPath;
             File = file;
+            Connection = connection;
             _tempData = tempData;
             _fileSystem = fileSystem;
         }
@@ -55,6 +62,9 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
 
         /// <inheritdoc />
         public string TransferId { get; }
+
+        /// <inheritdoc />
+        public IFtpConnection Connection { get; }
 
         /// <inheritdoc />
         public async Task Start(IProgress<long> progress, CancellationToken cancellationToken)

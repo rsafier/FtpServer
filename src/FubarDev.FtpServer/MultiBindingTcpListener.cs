@@ -9,6 +9,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
+using JetBrains.Annotations;
+
+using Microsoft.Extensions.Logging;
+
 namespace FubarDev.FtpServer
 {
     /// <summary>
@@ -16,6 +20,8 @@ namespace FubarDev.FtpServer
     /// </summary>
     public class MultiBindingTcpListener
     {
+        [CanBeNull]
+        private readonly ILogger _logger;
         private readonly string _address;
         private readonly int _port;
         private readonly IList<TcpListener> _listeners = new List<TcpListener>();
@@ -23,15 +29,17 @@ namespace FubarDev.FtpServer
         /// <summary>
         /// Initializes a new instance of the <see cref="MultiBindingTcpListener"/> class.
         /// </summary>
+        /// <param name="logger">The logger.</param>
         /// <param name="address">The address/host name to bind to.</param>
         /// <param name="port">The listener port.</param>
-        public MultiBindingTcpListener(string address, int port)
+        public MultiBindingTcpListener([CanBeNull] ILogger logger, string address, int port)
         {
             if (port < 1 || port > 65535)
             {
                 throw new ArgumentOutOfRangeException(nameof(port), "The port argument is out of range");
             }
 
+            _logger = logger;
             _address = address;
             _port = port;
         }
@@ -47,6 +55,7 @@ namespace FubarDev.FtpServer
         /// <returns>the task.</returns>
         public async Task StartAsync()
         {
+            _logger?.LogInformation("Server configured for listening on {address}:{port}", _address, _port);
             var dnsAddresses = await Dns.GetHostAddressesAsync(_address).ConfigureAwait(false);
             var addresses = dnsAddresses
                 .Where(x => x.AddressFamily == AddressFamily.InterNetwork ||
@@ -109,6 +118,8 @@ namespace FubarDev.FtpServer
                 {
                     selectedPort = ((IPEndPoint)listener.LocalEndpoint).Port;
                 }
+
+                _logger?.LogDebug("Started listening on {address}:{port}", address, selectedPort);
 
                 _listeners.Add(listener);
             }

@@ -12,9 +12,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-#if !NETSTANDARD1_3
 using Microsoft.Extensions.Logging;
-#endif
 
 namespace FubarDev.FtpServer.BackgroundTransfer
 {

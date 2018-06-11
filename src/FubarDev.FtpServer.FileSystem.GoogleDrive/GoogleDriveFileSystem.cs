@@ -29,6 +29,9 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
         [NotNull]
         private readonly ITemporaryDataFactory _temporaryDataFactory;
 
+        [NotNull]
+        private readonly IFtpConnection _ftpConnection;
+
         private readonly Dictionary<string, BackgroundUpload> _uploads = new Dictionary<string, BackgroundUpload>();
 
         private readonly SemaphoreSlim _uploadsLock = new SemaphoreSlim(1);
@@ -41,12 +44,15 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
         /// <param name="service">The <see cref="DriveService"/> instance to use to access the Google Drive.</param>
         /// <param name="rootFolderInfo">The <see cref="Google.Apis.Drive.v3.Data.File"/> to use as root folder.</param>
         /// <param name="temporaryDataFactory">The factory to create temporary data objects.</param>
+        /// <param name="ftpConnection">The FTP connection this <see cref="IUnixFileSystem"/> instance belongs to.</param>
         public GoogleDriveFileSystem(
             [NotNull] DriveService service,
             [NotNull] File rootFolderInfo,
-            [NotNull] ITemporaryDataFactory temporaryDataFactory)
+            [NotNull] ITemporaryDataFactory temporaryDataFactory,
+            [NotNull] IFtpConnection ftpConnection)
         {
             _temporaryDataFactory = temporaryDataFactory;
+            _ftpConnection = ftpConnection;
             Service = service;
             Root = new GoogleDriveDirectoryEntry(this, rootFolderInfo, "/", true);
         }
@@ -253,7 +259,7 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
             var expectedSize = data.CanSeek ? data.Length : (long?)null;
             var tempData = await _temporaryDataFactory.CreateAsync(data, expectedSize, cancellationToken);
             var fullPath = FileSystemExtensions.CombinePath(targetEntry.FullName, fileName);
-            var backgroundUploads = new BackgroundUpload(fullPath, newFileEntry, tempData, this);
+            var backgroundUploads = new BackgroundUpload(fullPath, newFileEntry, tempData, this, _ftpConnection);
             await _uploadsLock.WaitAsync(cancellationToken);
             try
             {
@@ -276,7 +282,7 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
             var fe = (GoogleDriveFileEntry)fileEntry;
             var expectedSize = data.CanSeek ? data.Length : (long?)null;
             var tempData = await _temporaryDataFactory.CreateAsync(data, expectedSize, cancellationToken);
-            var backgroundUploads = new BackgroundUpload(fe.FullName, fe.File, tempData, this);
+            var backgroundUploads = new BackgroundUpload(fe.FullName, fe.File, tempData, this, _ftpConnection);
             await _uploadsLock.WaitAsync(cancellationToken);
             try
             {

@@ -22,14 +22,16 @@ namespace FubarDev.FtpServer
     /// <summary>
     /// Common data for a <see cref="IFtpConnection"/>.
     /// </summary>
-    public sealed class FtpConnectionData : IDisposable
+    public sealed class FtpConnectionData : IAccountInformation, IDisposable
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FtpConnectionData"/> class.
         /// </summary>
         /// <param name="backgroundCommandHandler">Utility module that allows background execution of an FTP command.</param>
-        public FtpConnectionData([NotNull] IBackgroundCommandHandler backgroundCommandHandler)
+        /// <param name="owner">The owning FTP connection</param>
+        public FtpConnectionData([NotNull] IBackgroundCommandHandler backgroundCommandHandler, IFtpConnection owner)
         {
+            AuthenticatedFor = owner;
             UserData = new ExpandoObject();
             TransferMode = new FtpTransferMode(FtpFileType.Ascii);
             BackgroundCommandHandler = backgroundCommandHandler;
@@ -40,7 +42,6 @@ namespace FubarDev.FtpServer
         /// <summary>
         /// Gets or sets the current user name.
         /// </summary>
-        [CanBeNull]
         public IFtpUser User { get; set; }
 
         /// <summary>
@@ -52,8 +53,12 @@ namespace FubarDev.FtpServer
         /// <summary>
         /// Gets or sets the membership provider that was used to authenticate the user.
         /// </summary>
-        [CanBeNull]
         public IMembershipProvider AuthenticatedBy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the FTP connection this user was authenticated for.
+        /// </summary>
+        public IFtpConnection AuthenticatedFor { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the current user is anonymous.

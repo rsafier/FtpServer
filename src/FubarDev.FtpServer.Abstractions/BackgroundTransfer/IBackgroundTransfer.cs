@@ -22,6 +22,11 @@ namespace FubarDev.FtpServer.BackgroundTransfer
         string TransferId { get; }
 
         /// <summary>
+        /// Gets the FTP connection this background data transfer belongs to.
+        /// </summary>
+        IFtpConnection Connection { get; }
+
+        /// <summary>
         /// Starts the background data transfer.
         /// </summary>
         /// <param name="progress">Used to send the progress to the caller.</param>
