@@ -16,6 +16,7 @@ namespace TestFtpServer
         public string ServerCertificateFile { get; set; }
         public string ServerCertificatePassword { get; set; }
         public bool RefreshToken { get; set; }
+        public bool UseDirectUpload { get; set; }
 
         public int GetPort()
         {

@@ -14,6 +14,7 @@ using System.Xml;
 
 using FubarDev.FtpServer;
 using FubarDev.FtpServer.FileSystem.DotNet;
+using FubarDev.FtpServer.FileSystem.GoogleDrive;
 
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
@@ -43,7 +44,7 @@ namespace TestFtpServer
                 { "a|address=", "Sets the IP address or host name", v => options.ServerAddress = v },
                 { "p|port=", "Sets the listen port", v => options.Port = Convert.ToInt32(v) },
                 "FTPS",
-                { "c|certificate=", "Set the SSL certificate", v => options.ServerCertificateFile =v },
+                { "c|certificate=", "Set the SSL certificate", v => options.ServerCertificateFile = v },
                 { "P|password=", "Password for the SSL certificate", v => options.ServerCertificatePassword = v },
                 { "i|implicit", "Use implicit FTPS", v => options.ImplicitFtps = XmlConvert.ToBoolean(v.ToLowerInvariant()) },
                 "Backends",
@@ -57,6 +58,7 @@ namespace TestFtpServer
                 },
                 new CommandSet("google-drive")
                 {
+                    { "d|direct", "Use direct upload", v => options.UseDirectUpload = v != null },
                     new Command("user", "Use a users Google Drive as file system")
                     {
                         Options = new OptionSet()
@@ -198,7 +200,9 @@ namespace TestFtpServer
                     {
                         opt.ServerAddress = options.ServerAddress ?? "localhost";
                         opt.Port = options.GetPort();
-                    });
+                    })
+                .Configure<GoogleDriveOptions>(
+                    opt => { opt.UseDirectUpload = options.UseDirectUpload; });
 
             if (options.ImplicitFtps)
             {
