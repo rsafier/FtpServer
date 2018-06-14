@@ -20,9 +20,11 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
     /// </summary>
     internal class BackgroundUpload : IBackgroundTransfer
     {
+        [NotNull]
         private readonly ITemporaryData _tempData;
 
-        private readonly GoogleDriveFileSystem _fileSystem;
+        [NotNull]
+        private readonly IGoogleDriveFileSystem _fileSystem;
 
         private bool _notifiedAsFinished;
 
@@ -40,7 +42,7 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
             [NotNull] string fullPath,
             [NotNull] File file,
             [NotNull] ITemporaryData tempData,
-            [NotNull] GoogleDriveFileSystem fileSystem,
+            [NotNull] IGoogleDriveFileSystem fileSystem,
             [NotNull] IFtpConnection connection)
         {
             TransferId = fullPath;
@@ -58,7 +60,7 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
         /// <summary>
         /// Gets the file size.
         /// </summary>
-        public long FileSize => _tempData.Size;
+        public long FileSize => (File.Size ?? 0) + _tempData.Size;
 
         /// <inheritdoc />
         public string TransferId { get; }
@@ -73,7 +75,11 @@ namespace FubarDev.FtpServer.FileSystem.GoogleDrive
             {
                 try
                 {
-                    var upload = _fileSystem.Service.Files.Update(new File(), File.Id, stream, "application/octet-stream");
+                    var upload = _fileSystem.Service.Files.Update(
+                        new File(),
+                        File.Id,
+                        stream,
+                        "application/octet-stream");
                     upload.ProgressChanged += (uploadProgress) => { progress.Report(uploadProgress.BytesSent); };
                     var result = await upload.UploadAsync(cancellationToken);
                     if (result.Status == UploadStatus.Failed)
