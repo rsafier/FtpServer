@@ -167,7 +167,7 @@ namespace FubarDev.FtpServer
         public void Dispose()
         {
             PassiveSocketClient?.Dispose();
-            FileSystem.Dispose();
+            (FileSystem as IDisposable)?.Dispose();
             PassiveSocketClient = null;
         }
     }
