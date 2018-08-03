@@ -24,6 +24,8 @@ namespace FubarDev.FtpServer
         [NotNull]
         string ServerAddress { get; }
 
+        string PublicServerAddressOverride { get; }
+
         /// <summary>
         /// Gets the port on which the FTP server is listening for incoming connections.
         /// </summary>
@@ -52,5 +54,19 @@ namespace FubarDev.FtpServer
         /// The FTP server cannot be started again after it was stopped.
         /// </remarks>
         void Stop();
+
+        /// <summary>
+        /// Return passive port to pool
+        /// </summary>
+        /// <param name="port">Port # being returned to pool</param>
+        void PushPasvPort(int port);
+
+        /// <summary>
+        /// Get next passive port from pool
+        /// </summary>
+        /// <param name="timeout">Duration to wait to obtain open port</param>
+        /// <returns>Next free port</returns>
+        int PeekPasvPort(TimeSpan timeout);
+
     }
 }

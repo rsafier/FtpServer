@@ -13,10 +13,12 @@ namespace FubarDev.FtpServer
         /// Gets or sets the server address.
         /// </summary>
         public string ServerAddress { get; set; } = "localhost";
+        public string PublicServerAddressOverride { get; set; }
 
         /// <summary>
         /// Gets or sets the server port.
         /// </summary>
         public int Port { get; set; } = 21;
+        public int[] PassivePorts { get; set; }
     }
 }

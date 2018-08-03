@@ -29,6 +29,7 @@ namespace FubarDev.FtpServer
     /// </summary>
     public sealed class FtpServer : IFtpServer, IDisposable
     {
+        private Queue<int> _passivePorts;
         private readonly object _startedLock = new object();
 
         /// <summary>
@@ -74,9 +75,12 @@ namespace FubarDev.FtpServer
             _serviceProvider = serviceProvider;
             _log = logger;
             ServerAddress = serverOptions.Value.ServerAddress;
+            PublicServerAddressOverride = serverOptions.Value.PublicServerAddressOverride;
             Port = serverOptions.Value.Port;
             BackgroundTransferWorker = new BackgroundTransferWorker(loggerFactory?.CreateLogger<BackgroundTransferWorker>());
             BackgroundTransferWorker.Start(_cancellationTokenSource);
+            _passivePorts = serverOptions.Value.PassivePorts == null ? null : new Queue<int>(serverOptions.Value.PassivePorts);
+
         }
 
         /// <inheritdoc />
@@ -87,6 +91,8 @@ namespace FubarDev.FtpServer
 
         /// <inheritdoc />
         public string ServerAddress { get; }
+
+        public string PublicServerAddressOverride { get; }
 
         /// <inheritdoc />
         public int Port { get; }
@@ -136,7 +142,43 @@ namespace FubarDev.FtpServer
                 }
             }
         }
+        public int PeekPasvPort(TimeSpan timeout)
+        {
+            if (_passivePorts == null)
+                return 0;
 
+            lock (_passivePorts)
+            {
+                if (_passivePorts.Count == 0)
+                {
+                    do
+                    {
+                        if (Monitor.Wait(_passivePorts, timeout) == false)
+                        {
+                            return -1;
+                        }
+                    }
+                    while (_passivePorts.Count == 0);
+                }
+                return _passivePorts.Dequeue();
+            }
+        }
+
+        public void PushPasvPort(int port)
+        {
+            if (_passivePorts != null)
+            {
+                lock (_passivePorts)
+                {
+                    _passivePorts.Enqueue(port);
+                    if (_passivePorts.Count == 1)
+                    {
+                        // wake up any blocked dequeue
+                        Monitor.PulseAll(_passivePorts);
+                    }
+                }
+            }
+        }
         /// <inheritdoc />
         public void Start()
         {

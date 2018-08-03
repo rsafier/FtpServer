@@ -11,6 +11,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 using JetBrains.Annotations;
 
@@ -25,13 +26,18 @@ namespace FubarDev.FtpServer.CommandHandlers
     /// </summary>
     public class PasvCommandHandler : FtpCommandHandler
     {
+        private IFtpServer _ftpServer;
+        private TimeSpan _obtainPortTimeout = TimeSpan.FromSeconds(5);
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PasvCommandHandler"/> class.
         /// </summary>
         /// <param name="connection">The connection this command handler is created for.</param>
-        public PasvCommandHandler([NotNull] IFtpConnection connection)
+        /// <param name="ftpServer"></param>
+        public PasvCommandHandler([NotNull] IFtpConnection connection, IFtpServer ftpServer)
             : base(connection, "PASV", "EPSV")
         {
+            _ftpServer = ftpServer;
         }
 
         /// <inheritdoc/>
@@ -55,24 +61,31 @@ namespace FubarDev.FtpServer.CommandHandlers
             }
 
             int port;
+            bool peeked = true;
             var isEpsv = string.Equals(command.Name, "EPSV", StringComparison.OrdinalIgnoreCase);
             if (isEpsv)
             {
                 if (string.IsNullOrEmpty(command.Argument) || string.Equals(command.Argument, "ALL", StringComparison.OrdinalIgnoreCase))
                 {
-                    port = 0;
+                    port = _ftpServer.PeekPasvPort(_obtainPortTimeout);
                 }
                 else
                 {
                     port = Convert.ToInt32(command.Argument, 10);
+                    peeked = false;
                 }
             }
             else
             {
-                port = 0;
+                port = _ftpServer.PeekPasvPort(_obtainPortTimeout);
             }
-
             Data.TransferTypeCommandUsed = command.Name;
+
+            if (port < 0)
+            {
+                // we do not found any available port
+                return new FtpResponse(425, $"Can't open data connection.");
+            }
 
             var timeout = TimeSpan.FromSeconds(5);
             var address = Connection.LocalEndPoint.Address;
@@ -88,7 +101,7 @@ namespace FubarDev.FtpServer.CommandHandlers
                 }
                 else
                 {
-                    var listenerAddress = new Address(address.ToString(), localPort);
+                    var listenerAddress = new Address(_ftpServer.PublicServerAddressOverride ?? address.ToString(), localPort);
                     await Connection.WriteAsync(new FtpResponse(227, $"Entering Passive Mode ({listenerAddress})."), cancellationToken).ConfigureAwait(false);
                 }
 
@@ -105,6 +118,11 @@ namespace FubarDev.FtpServer.CommandHandlers
             finally
             {
                 listener.Stop();
+                if (peeked)
+                {
+                    // set the port as available.
+                    _ftpServer.PushPasvPort(port);
+                }
             }
 
             return null;
