@@ -61,12 +61,11 @@ namespace FubarDev.FtpServer.CommandHandlers
                 if (validationResult.IsSuccess)
                 {
                     var isAnonymous = validationResult.Status == MemberValidationStatus.Anonymous;
-                    var userId = isAnonymous ? password : Connection.Data.User.Name;
                     Connection.Data.User = validationResult.User;
                     Connection.Data.IsLoggedIn = true;
                     Connection.Data.AuthenticatedBy = membershipProvider;
                     Connection.Data.IsAnonymous = isAnonymous;
-                    Connection.Data.FileSystem = await _fileSystemClassFactory.Create(userId, isAnonymous).ConfigureAwait(false);
+                    Connection.Data.FileSystem = await _fileSystemClassFactory.Create(validationResult.User, isAnonymous).ConfigureAwait(false);
                     Connection.Data.Path = new Stack<IUnixDirectoryEntry>();
                     return new FtpResponse(230, "Password ok, FTP server ready");
                 }

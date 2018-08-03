@@ -46,6 +46,8 @@ namespace FubarDev.FtpServer.CommandHandlers
 
             public string Name { get; }
 
+            public string RootPath { get; }
+
             public bool IsInGroup(string groupName) => false;
         }
     }

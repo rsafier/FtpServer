@@ -17,6 +17,8 @@ namespace FubarDev.FtpServer.AccountManagement
         [NotNull]
         string Name { get; }
 
+        string RootPath { get; }
+
         /// <summary>
         /// Returns <code>true</code> when the user is in the given group.
         /// </summary>

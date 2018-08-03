@@ -41,6 +41,8 @@ namespace TestFtpServer
             /// <inheritdoc />
             public string Name { get; }
 
+            public string RootPath { get; }
+
             /// <inheritdoc />
             public bool IsInGroup(string groupName)
             {

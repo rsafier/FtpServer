@@ -28,6 +28,8 @@ namespace FubarDev.FtpServer.AccountManagement
         /// <inheritdoc />
         public string Name { get; } = "anonymous";
 
+        public string RootPath { get; }
+
         /// <summary>
         /// Gets the anonymous users email address.
         /// </summary>

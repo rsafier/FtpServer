@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System.Threading.Tasks;
+using FubarDev.FtpServer.AccountManagement;
 
 namespace FubarDev.FtpServer.FileSystem
 {
@@ -23,6 +24,6 @@ namespace FubarDev.FtpServer.FileSystem
         /// <remarks>
         /// When the login is anonymous, the <paramref name="userId"/> is the given password.
         /// </remarks>
-        Task<IUnixFileSystem> Create(string userId, bool isAnonymous);
+        Task<IUnixFileSystem> Create(IFtpUser user, bool isAnonymous);
     }
 }
