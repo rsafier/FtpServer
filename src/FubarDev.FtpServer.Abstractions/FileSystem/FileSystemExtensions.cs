@@ -464,7 +464,7 @@ namespace FubarDev.FtpServer.FileSystem
                 pathElements.Add(string.Empty);
             }
 
-            var parts = SplitPath(path).Where(x => !string.IsNullOrEmpty(x));
+            var parts = SplitPath(path).Where(x => !string.IsNullOrWhiteSpace(x));
             pathElements.AddRange(parts);
             return pathElements;
         }
