@@ -20,7 +20,7 @@ namespace FubarDev.FtpServer.CommandHandlers
     /// </summary>
     public class RetrCommandHandler : FtpCommandHandler
     {
-        private const int BufferSize = 4096;
+        private const int BufferSize = 1024*1024;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RetrCommandHandler"/> class.
