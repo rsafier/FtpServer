@@ -51,10 +51,16 @@ namespace FubarDev.FtpServer.CommandHandlers
         public override Task<FtpResponse> Process(FtpCommand command, CancellationToken cancellationToken)
         {
             var arg = command.Argument;
+
             if (string.IsNullOrEmpty(arg))
             {
                 arg = "TLS";
             }
+            if (_serverCertificate == null)
+            {
+                return Task.FromResult(new FtpResponse(504, $"Authentication mode {arg} not supported."));
+            }
+            
 
             switch (arg.ToUpperInvariant())
             {
