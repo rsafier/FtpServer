@@ -16,8 +16,8 @@ using FubarDev.FtpServer;
 using FubarDev.FtpServer.AccountManagement;
 using FubarDev.FtpServer.FileSystem.DotNet;
 
-using Google.Apis.Auth.OAuth2;
-using Google.Apis.Drive.v3;
+//using Google.Apis.Auth.OAuth2;
+//using Google.Apis.Drive.v3;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -71,26 +71,26 @@ namespace TestFtpServer
                     },
                     Run = a => RunWithFileSystem(a.ToArray(), options),
                 },
-                new CommandSet("google-drive")
-                {
-                    new Command("user", "Use a users Google Drive as file system")
-                    {
-                        Options = new OptionSet()
-                        {
-                            "usage: ftpserver google-drive user <CLIENT-SECRETS-FILE> <USERNAME>",
-                            { "r|refresh", "Refresh the access token", v => options.RefreshToken = v != null },
-                        },
-                        Run = a => RunWithGoogleDriveUser(a.ToArray(), options).Wait(),
-                    },
-                    new Command("service", "Use a users Google Drive with a service account")
-                    {
-                        Options = new OptionSet()
-                        {
-                            "usage: ftpserver google-drive service <SERVICE-CREDENTIAL-FILE>",
-                        },
-                        Run = a => RunWithGoogleDriveService(a.ToArray(), options),
-                    },
-                },
+                //new CommandSet("google-drive")
+                //{
+                //    new Command("user", "Use a users Google Drive as file system")
+                //    {
+                //        Options = new OptionSet()
+                //        {
+                //            "usage: ftpserver google-drive user <CLIENT-SECRETS-FILE> <USERNAME>",
+                //            { "r|refresh", "Refresh the access token", v => options.RefreshToken = v != null },
+                //        },
+                //        Run = a => RunWithGoogleDriveUser(a.ToArray(), options).Wait(),
+                //    },
+                //    new Command("service", "Use a users Google Drive with a service account")
+                //    {
+                //        Options = new OptionSet()
+                //        {
+                //            "usage: ftpserver google-drive service <SERVICE-CREDENTIAL-FILE>",
+                //        },
+                //        Run = a => RunWithGoogleDriveService(a.ToArray(), options),
+                //    },
+                //},
             };
 
             return optionSet.Run(args);
@@ -107,54 +107,54 @@ namespace TestFtpServer
             Run(services, options);
         }
 
-        private static async Task RunWithGoogleDriveUser(string[] args, TestFtpServerOptions options)
-        {
-            options.Validate();
-            if (args.Length != 2)
-            {
-                throw new Exception("This command requires two arguments: <CLIENT-SECRETS-FILE> <USERNAME>");
-            }
+        //private static async Task RunWithGoogleDriveUser(string[] args, TestFtpServerOptions options)
+        //{
+        //    options.Validate();
+        //    if (args.Length != 2)
+        //    {
+        //        throw new Exception("This command requires two arguments: <CLIENT-SECRETS-FILE> <USERNAME>");
+        //    }
 
-            var clientSecretsFile = args[0];
-            var userName = args[1];
+        //    var clientSecretsFile = args[0];
+        //    var userName = args[1];
 
-            UserCredential credential;
-            using (var secretsSource = new FileStream(clientSecretsFile, FileMode.Open))
-            {
-                var secrets = GoogleClientSecrets.Load(secretsSource);
-                credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    secrets.Secrets,
-                    new[] { DriveService.Scope.DriveFile, DriveService.Scope.Drive },
-                    userName,
-                    CancellationToken.None);
-                if (options.RefreshToken)
-                {
-                    await credential.RefreshTokenAsync(CancellationToken.None);
-                }
-            }
+        //    UserCredential credential;
+        //    using (var secretsSource = new FileStream(clientSecretsFile, FileMode.Open))
+        //    {
+        //        var secrets = GoogleClientSecrets.Load(secretsSource);
+        //        credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+        //            secrets.Secrets,
+        //            new[] { DriveService.Scope.DriveFile, DriveService.Scope.Drive },
+        //            userName,
+        //            CancellationToken.None);
+        //        if (options.RefreshToken)
+        //        {
+        //            await credential.RefreshTokenAsync(CancellationToken.None);
+        //        }
+        //    }
 
-            var services = CreateServices(options)
-                .AddFtpServer(sb => Configure(sb, options).UseGoogleDrive(credential));
-            Run(services, options);
-        }
+        //    var services = CreateServices(options)
+        //        .AddFtpServer(sb => Configure(sb, options).UseGoogleDrive(credential));
+        //    Run(services, options);
+        //}
 
-        private static void RunWithGoogleDriveService(string[] args, TestFtpServerOptions options)
-        {
-            options.Validate();
-            if (args.Length != 1)
-            {
-                throw new Exception("This command requires one argument: <SERVICE-CREDENTIAL-FILE>");
-            }
+        //private static void RunWithGoogleDriveService(string[] args, TestFtpServerOptions options)
+        //{
+        //    options.Validate();
+        //    if (args.Length != 1)
+        //    {
+        //        throw new Exception("This command requires one argument: <SERVICE-CREDENTIAL-FILE>");
+        //    }
 
-            var serviceCredentialFile = args[0];
-            var credential = GoogleCredential
-                .FromFile(serviceCredentialFile)
-                .CreateScoped(DriveService.Scope.Drive, DriveService.Scope.DriveFile);
+        //    var serviceCredentialFile = args[0];
+        //    var credential = GoogleCredential
+        //        .FromFile(serviceCredentialFile)
+        //        .CreateScoped(DriveService.Scope.Drive, DriveService.Scope.DriveFile);
 
-            var services = CreateServices(options)
-                .AddFtpServer(sb => Configure(sb, options).UseGoogleDrive(credential));
-            Run(services, options);
-        }
+        //    var services = CreateServices(options)
+        //        .AddFtpServer(sb => Configure(sb, options).UseGoogleDrive(credential));
+        //    Run(services, options);
+        //}
 
         private static void Run(IServiceCollection services, TestFtpServerOptions options)
         {
