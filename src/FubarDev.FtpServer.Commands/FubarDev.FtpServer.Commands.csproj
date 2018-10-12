@@ -10,10 +10,14 @@
     <ProjectReference Include="..\FubarDev.FtpServer.Abstractions\FubarDev.FtpServer.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="DotNet.Glob" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="2.1.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="DotNet.Glob">
+      <HintPath>..\..\lib\DotNet.Glob.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="JetBrains.Annotations" Version="2018.2.1" />
